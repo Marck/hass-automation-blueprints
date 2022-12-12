@@ -29,7 +29,7 @@ blueprint:
         number:
           min: -90
           max: 90
-  source_url: https://input-url-here-later-on
+  source_url: https://github.com/Marck/home-assistant-automation-blueprints/blob/main/motion-controlled-lights.yaml
 mode: restart
 max_exceeded: silent
 variables:
@@ -37,41 +37,41 @@ variables:
   no_motion_wait: !input 'no_motion_wait'
   sun_elevation_below: !input 'sun_elevation_below'
 trigger:
-- platform: state
-  entity_id: !input 'motion_entities'
+  - platform: state
+    entity_id: !input 'motion_entities'
 condition: 
-- condition: template
-  value_template: >
-    {{ ((sun_elevation_below or sun_elevation_below == 0) and state_attr('sun.sun', 'elevation') | int(91) <= sun_elevation_below | int(-91)) }}
+  - condition: template
+    value_template: >
+      {{ ((sun_elevation_below or sun_elevation_below == 0) and state_attr('sun.sun', 'elevation') | int(91) <= sun_elevation_below | int(-91)) }}
 action:
-- delay: >
-    {% if int(no_motion_wait) >= 0 and trigger.to_state.state == "off" %}
-      {{no_motion_wait}}
-    {% else %} 0 {% endif %}
-- service: >
-    {% if trigger.to_state.state == "on" %}
-      light.turn_on
-    {% else %}
-      light.turn_off
-    {% endif %}
-  data: {}
-  target:
-    entity_id: >
+  - delay: >
+      {% if int(no_motion_wait) >= 0 and trigger.to_state.state == "off" %}
+        {{no_motion_wait}}
+      {% else %} 0 {% endif %}
+  - service: >
       {% if trigger.to_state.state == "on" %}
-        {% set sensor_state = "on" %}
-        {% set light_state = "off" %}
+        light.turn_on
       {% else %}
-        {% set sensor_state = "off" %}
-        {% set light_state = "on" %}
+        light.turn_off
       {% endif %}
-        {% set areas = states.binary_sensor | selectattr('attributes.device_class', 'defined') 
-          | selectattr('entity_id', 'in', motion_entities)
-          | selectattr('attributes.device_class', '==', 'motion')
-          | selectattr('state', 'eq', sensor_state) | map(attribute='entity_id')
-          | map('area_id') | unique | reject('none') | list %}
-        {% set ns = namespace(entities=[]) %}
-        {% for x in areas %}
-          {% set ns.entities = ns.entities + expand(area_entities(x) | select('match', 'light'))
-            | selectattr('state', 'eq', light_state) | map(attribute='entity_id') | list %}
-        {% endfor %}
-        {{ ns.entities }}
+    data: {}
+    target:
+      entity_id: >
+        {% if trigger.to_state.state == "on" %}
+          {% set sensor_state = "on" %}
+          {% set light_state = "off" %}
+        {% else %}
+          {% set sensor_state = "off" %}
+          {% set light_state = "on" %}
+        {% endif %}
+          {% set areas = states.binary_sensor | selectattr('attributes.device_class', 'defined') 
+            | selectattr('entity_id', 'in', motion_entities)
+            | selectattr('attributes.device_class', '==', 'motion')
+            | selectattr('state', 'eq', sensor_state) | map(attribute='entity_id')
+            | map('area_id') | unique | reject('none') | list %}
+          {% set ns = namespace(entities=[]) %}
+          {% for x in areas %}
+            {% set ns.entities = ns.entities + expand(area_entities(x) | select('match', 'light'))
+              | selectattr('state', 'eq', light_state) | map(attribute='entity_id') | list %}
+          {% endfor %}
+          {{ ns.entities }}
