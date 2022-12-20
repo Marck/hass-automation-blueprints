@@ -78,7 +78,7 @@ trigger:
 - platform: time
   at: !input 'time'
 condition:
-- '{{ sensors != '''' and (day | int == 0 or day | int == now().isoweekday()) }}'
+- '{{ sensors | length > 0 and (day | int == 0 or day | int == now().isoweekday()) }}'
 action:
 - choose: []
   default: !input 'actions'
