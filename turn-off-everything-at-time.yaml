@@ -1,0 +1,89 @@
+blueprint: 
+  name: Turn off all sort of entities at a specific time
+  description: Turn off every entity at a specific time
+  domain: automation
+  input:
+    time:
+      name: Time to run at
+      description: The automation is run at this configured time
+      default: '23:00:00'
+      selector:
+        time: {}
+    trigger_entity:
+      name: Trigger entity
+      description: Entity to trigger the blueprint. For example a input_button.
+      default: ''
+      selector:
+        entity:
+    actions:
+      name: Actions
+      description: Notifications or similar to be run after running the turn off statements
+      selector:
+        action: {}
+  source_url: https://github.com/Marck/home-assistant-automation-blueprints/blob/main/turn-off-everything-at-time.yaml
+mode: restart
+max_exceeded: silent
+variables:
+  state: 'on'
+  areas: >
+    {% set areas = states
+      | selectattr('attributes.device_class', 'defined') 
+      | map(attribute='entity_id')
+      | map('area_id') | unique | reject('none') | list %}
+    {{ areas | list }}
+  lights: >
+    {% set ns = namespace(entities=[]) %}
+    {% for area in areas %}
+      {% set ns.entities = ns.entities + expand(area_entities(area) | select('match', 'light'))
+        | selectattr('state', 'eq', state) | map(attribute='entity_id') | list %}
+    {% endfor %}
+    {{ ns.entities }}   
+  switches: >
+    {% set ns = namespace(entities=[]) %}
+    {% for area in areas %}
+      {% set ns.entities = ns.entities + expand(area_entities(area) | select('match', 'switch'))
+        | selectattr('state', 'eq', state) | map(attribute='entity_id') | list %}
+    {% endfor %}
+    {{ ns.entities }}
+  climate: >
+    {% set ns = namespace(entities=[]) %}
+    {% for area in areas %}
+      {% set ns.entities = ns.entities + expand(area_entities(area) | select('match', 'climate'))
+        | selectattr('state', 'eq', state) | map(attribute='entity_id') | list %}
+    {% endfor %}
+    {{ ns.entities }}
+trigger:
+  - platform: time
+    at: !input 'time'
+  - platform: state
+    entity_id: !input 'trigger_entity'
+# condition: 
+# - condition: template
+#   value_template: >
+action:
+  - choose: []
+    default: !input 'actions'
+  - if:
+      - condition: template
+        value_template: "{{ lights | length > 0 }}"
+    then:
+      - service: light.turn_off
+        data: {}
+        target:
+          entity_id: '{{ lights }}'
+  - if:
+      - condition: template
+        value_template: "{{ switches | length > 0 }}"
+    then:
+      - service: switch.turn_off
+        data: {}
+        target:
+          entity_id: '{{ switches }}'
+  - if:
+      - condition: template
+        value_template: "{{ climate | length > 0 }}"
+    then:
+      - service: climate.turn_off
+        data: {}
+        target:
+          entity_id: '{{ climate }}'
