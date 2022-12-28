@@ -1,0 +1,79 @@
+blueprint:
+  name: Zone Notification
+  description: Send a notification to a device when a person leaves a specific zone.
+  domain: automation
+  source_url: https://github.com/Marck/home-assistant-automation-blueprints/blob/main/notify_leaving_zone.yaml
+  input:
+    person_entity:
+      name: Person
+      description: The person entity that leaves the zone
+      selector:
+        entity:
+          domain: person
+    zone_entity:
+      name: Zone
+      description: The zone of which the person is leaving
+      selector:
+        entity:
+          domain: zone
+          multiple: false
+    travel_time_entity:
+      name: Travel Time Entity
+      description: The entity which calculates the travel time for the person that is leaving the zone
+      selector:
+        entity:
+          domain: sensor
+          multiple: false
+    time_condition:
+      name: Time condition
+      description: The automation will trigger if the person leaves after this time.
+      default: '15:00'
+      selector:
+        time: {}
+    weekdays_condition:
+      name: Weekdays condition
+      description: The automation will trigger if the person leaves after these days.
+      selector:
+        select:
+          options:
+          - mon
+          - tue
+          - wed
+          - thu
+          - fri
+          - sat
+          - sun
+          multiple: true
+          mode: dropdown
+    notify_device:
+      name: Device to notify
+      description: Device needs to run the official Home Assistant app to receive notifications.
+      selector:
+        device:
+          integration: mobile_app
+
+trigger:
+  platform: state
+  entity_id: !input person_entity
+
+variables:
+  zone_entity: !input zone_entity
+  travel_time_entity: !input travel_time_entity
+  travel_time_entity_state: "{{ states[travel_time_entity].state }}"
+  # This is the state of the person when it's in this zone.
+  zone_state: "{{ states[zone_entity].name }}"
+  person_entity: !input person_entity
+  person_name: "{{ states[person_entity].name }}"
+
+condition:
+  - condition: time
+    after: !input time_condition
+    weekday: !input weekdays_condition
+  - condition: template
+    value_template: "{{ trigger.from_state.state == zone_state and trigger.to_state.state != zone_state }}"
+
+action:
+  domain: mobile_app
+  type: notify
+  device_id: !input notify_device
+  message: "{{ person_name }} has just left {{ zone_state }} and will be home at: {{ travel_time_entity_state }}"
