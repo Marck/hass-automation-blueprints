@@ -76,4 +76,5 @@ action:
   domain: mobile_app
   type: notify
   device_id: !input notify_device
-  message: "{{ person_name }} has just left {{ zone_state }} and will be home at: {{ travel_time_entity_state }}"
+  message: |
+    {{ person_name }} has just left {{ zone_state }} and will be (approximately) home at: {{ travel_time_entity_state }}.
