@@ -1,6 +1,6 @@
 blueprint: 
-  name: Turn off all sort of entities at a specific time
-  description: Turn off every entity at a specific time
+  name: Turn off all sort of entities at a specific time or using a entity
+  description: Turn off every entity at a specific time or using a entity
   domain: automation
   input:
     time:
@@ -15,6 +15,22 @@ blueprint:
       default: ''
       selector:
         entity:
+    blocker_entity:
+      name: (Optional) Blocking Entity
+      description: If this entity's state is set to blocking entity state (defined
+        below), it will prevent the automation from "turning on" the target entity using
+        the action defined above.
+      default:
+      selector:
+        entity:
+    blocker_entity_state:
+      name: (Optional) Blocking Entity State
+      description: If blocking entity's state is of this state, it will prevent the
+        automation from  "turning on" the target entity using action defined above.
+      default:
+      selector:
+        entity:
+          domain: input_text
     actions:
       name: Actions
       description: Notifications or similar to be run after running the turn off statements
@@ -24,6 +40,9 @@ blueprint:
 mode: restart
 max_exceeded: silent
 variables:
+  blocker_entity: !input 'blocker_entity'
+  _blocker_entity_state: !input 'blocker_entity_state'
+  blocker_entity_state: '{{ (_blocker_entity_state or '''') | trim }}'
   state: 'on'
   areas: >
     {% set areas = states
@@ -57,9 +76,10 @@ trigger:
     at: !input 'time'
   - platform: state
     entity_id: !input 'trigger_entity'
-# condition: 
-# - condition: template
-#   value_template: >
+condition: 
+  - condition: template
+    value_template: '{{ not blocker_entity or not states(blocker_entity) | regex_match(''^(''+
+      blocker_entity_state +'')$'', ignorecase=true) }}'
 action:
   - choose: []
     default: !input 'actions'
