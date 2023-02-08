@@ -1,6 +1,6 @@
 blueprint: 
-  name: Turn off all sort of entities at a specific time or using a entity
-  description: Turn off every entity at a specific time or using a entity
+  name: Turn off entities at a specific time or by using a trigger entity
+  description: Turn off every entity at specific time or by using a trigger entity
   domain: automation
   input:
     time:
@@ -15,22 +15,31 @@ blueprint:
       default: ''
       selector:
         entity:
-    blocker_entity:
-      name: (Optional) Blocking Entity
-      description: If this entity's state is set to blocking entity state (defined
-        below), it will prevent the automation from "turning on" the target entity using
-        the action defined above.
+    # blocker_entity:
+    #   name: (Optional) Blocking Entity
+    #   description: If this entity's state is set to blocking entity state (defined
+    #     below), it will prevent the automation from "turning on" the target entity using
+    #     the action defined above.
+    #   default:
+    #   selector:
+    #     entity:
+    # blocker_entity_state:
+    #   name: (Optional) Blocking Entity State
+    #   description: If blocking entity's state is of this state, it will prevent the
+    #     automation from  "turning on" the target entity using action defined above.
+    #   default:
+    #   selector:
+    #     entity:
+    #       domain: input_text
+    climate_blocker_trigger:
+      name: Climate blocker trigger
+      description: Determine if climate is turned off by either time or trigger entity
       default:
       selector:
-        entity:
-    blocker_entity_state:
-      name: (Optional) Blocking Entity State
-      description: If blocking entity's state is of this state, it will prevent the
-        automation from  "turning on" the target entity using action defined above.
-      default:
-      selector:
-        entity:
-          domain: input_text
+        select:
+          options:
+            - Time
+            - Trigger entity
     actions:
       name: Actions
       description: Notifications or similar to be run after running the turn off statements
@@ -40,9 +49,10 @@ blueprint:
 mode: restart
 max_exceeded: silent
 variables:
-  blocker_entity: !input 'blocker_entity'
-  _blocker_entity_state: !input 'blocker_entity_state'
-  blocker_entity_state: '{{ (_blocker_entity_state or '''') | trim }}'
+  # blocker_entity: !input 'blocker_entity'
+  # _blocker_entity_state: !input 'blocker_entity_state'
+  # blocker_entity_state: '{{ (_blocker_entity_state or '''') | trim }}'
+  climate_blocker_trigger: !input climate_blocker_trigger
   state: 'on'
   areas: >
     {% set areas = states
@@ -64,22 +74,31 @@ variables:
         | selectattr('state', 'eq', state) | map(attribute='entity_id') | list %}
     {% endfor %}
     {{ ns.entities }}
+  media_players: >
+    {% set ns = namespace(entities=[]) %}
+    {% for area in areas %}
+      {% set ns.entities = ns.entities + expand(area_entities(area) | select('match', 'media_player'))
+        | selectattr('state', 'eq', state) | map(attribute='entity_id') | list %}
+    {% endfor %}
+    {{ ns.entities }}
   climate: >
     {% set ns = namespace(entities=[]) %}
     {% for area in areas %}
       {% set ns.entities = ns.entities + expand(area_entities(area) | select('match', 'climate'))
-        | selectattr('state', 'eq', state) | map(attribute='entity_id') | list %}
+        | selectattr('state', 'ne', 'off') | map(attribute='entity_id') | list %}
     {% endfor %}
     {{ ns.entities }}
 trigger:
   - platform: time
     at: !input 'time'
+    id: "1"
   - platform: state
     entity_id: !input 'trigger_entity'
-condition: 
-  - condition: template
-    value_template: '{{ not blocker_entity or not states(blocker_entity) | regex_match(''^(''+
-      blocker_entity_state +'')$'', ignorecase=true) }}'
+    id: "2"
+# condition: 
+#   - condition: template
+#     value_template: '{{ not blocker_entity or not states(blocker_entity) | regex_match(''^(''+
+#       blocker_entity_state +'')$'', ignorecase=true) }}'
 action:
   - choose: []
     default: !input 'actions'
@@ -101,9 +120,34 @@ action:
           entity_id: '{{ switches }}'
   - if:
       - condition: template
+        value_template: "{{ media_players | length > 0 }}"
+    then:
+      - service: media_player.turn_off
+        data: {}
+        target:
+          entity_id: '{{ media_players }}'
+  - if:
+      - condition: template
         value_template: "{{ climate | length > 0 }}"
+      - condition: template
+        value_template: "{{ climate_blocker_trigger == 'Time' }}"
+      - condition: trigger
+        id: "1"
     then:
       - service: climate.turn_off
         data: {}
         target:
           entity_id: '{{ climate }}'
+  - if:
+      - condition: template
+        value_template: "{{ climate | length > 0 }}"
+      - condition: template
+        value_template: "{{ climate_blocker_trigger == 'Trigger entity' }}"
+      - condition: trigger
+        id: "2"
+    then:
+      - service: climate.turn_off
+        data: {}
+        target:
+          entity_id: '{{ climate }}'
+  

@@ -1,0 +1,70 @@
+blueprint:
+  name: Update notification
+  description: Send a notification when there's an update availiable
+  domain: automation
+  input:
+    updaters:
+      name: Update sensor(s)
+      description: The sensor(s) which indicates if there's an update
+      selector:
+        entity:
+          domain: sensor
+          multiple: true
+    notification_title:
+      name: Notification title (Optional)
+      description: 'Default: "Upgrade time!"'
+      default: Upgrade time!
+    notification_message:
+      name: Notification message (Optional)
+      description: 'Default: "{{ default_notification_message }}"'
+      default: "{{ default_notification_message }}"
+    delay:
+      name: Delay (Optional)
+      description: Wait before sending the notification
+      default:
+      selector:
+        number:
+          min: 0.0
+          max: 60.0
+          unit_of_measurement: seconds
+          mode: slider
+          step: 1.0
+    notify_device:
+      name: Device to notify
+      description: Device needs to run the official Home Assistant app to receive
+        notifications
+      selector:
+        device:
+          integration: mobile_app
+    is_ios:
+      name: Is it an iOS device?
+      description: Toggle if your selected device runs iOS, default is true
+      selector:
+        boolean: {}
+      default: true
+  source_url: https://github.com/Marck/home-assistant-blueprints/blob/main/update-notification.yaml
+trigger:
+  - platform: state
+    entity_id: !input 'updaters'
+    from: 'off'
+    to: 'on'
+variables:
+  updaters: !input 'updaters'
+  is_ios: !input 'is_ios'
+  notify_device: !input 'notify_device'
+  notification_title: !input 'notification_title'
+  default_notification_message: |
+    There is an update available according to the following sensor(s):
+    {%- for sensor in updaters %}
+      - {{ sensor }}
+    {%- endfor -%}
+  notification_message: !input 'notification_message'
+  delay: !input 'delay'
+action:
+- delay: '{{ delay }}'
+- device_id: !input 'notify_device'
+  domain: mobile_app
+  type: notify
+  title: '{{ notification_title }}'
+  message: '{{ notification_message }}'
+  
