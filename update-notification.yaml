@@ -5,7 +5,7 @@ blueprint:
   input:
     updaters:
       name: Update sensor(s)
-      description: The sensor(s) which indicates if there's an update
+      description: The sensor(s) which indicate(s) if there's an update
       selector:
         entity:
           domain: sensor
@@ -67,4 +67,3 @@ action:
   type: notify
   title: '{{ notification_title }}'
   message: '{{ notification_message }}'
-  

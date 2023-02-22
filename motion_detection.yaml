@@ -1,0 +1,116 @@
+blueprint:
+  name: Motion detection based on a group of sensors
+  description: Send notifications if a group of sensors turns 'on' (ergo one of the sensors detects motion)
+    Based on a specific time or when group of persons are not home
+    Motion sensor group is needed.
+  domain: automation
+  input:
+    sensor_group:
+      name: Sensor group
+      description: Group of sensors that do the detection
+      selector:
+        entity:
+          domain: group
+    person_group:
+      name: Person group
+      description: Group of persons where at least one has to be home
+      selector:
+        entity:
+          domain: group
+    # notify_group:
+    #   name: HASS mobile app group
+    #   description: Group of mobile app integrations where the notification will be send to
+    #   selector:
+    #     entity:
+    #       domain: group
+    blocker_boolean:
+      name: Blocker boolean
+      description: Boolean that blocks the automation from running
+      default: ''
+      selector:
+        entity:
+          domain: input_boolean
+    time:
+      name: Time after which motion is detected
+      description: Notifications are send when motion is detected after this time
+      default: '23:00:00'
+      selector:
+        time: {}
+  source_url: https://github.com/Marck/home-assistant-blueprints/blob/main/motion_detection.yaml
+variables:
+  sensor_group: !input 'sensor_group'
+  person_group: !input 'person_group'
+  # notify_group: !input 'notify_group'
+  blocker_boolean: !input 'blocker_boolean'
+  time: !input 'time'
+  triggered_sensors: |
+    {% set result = namespace(sensors=[]) %} 
+    {% set sensors = expand(sensor_group) | rejectattr('state', 'in', ['unavailable', 'unknown', 'NaN']) %}
+    {%- for sensor in sensors -%}
+      {%- if sensor.state == 'on' -%}
+        {% set result.sensors = result.sensors + [sensor.name ~ ': ' ~ sensor.state] %}
+      {% endif %}
+    {% endfor -%}
+    {{ result.sensors|join('\n') }}
+trigger:
+- platform: state
+  entity_id: sensor_group
+  to: "on"
+condition:
+- condition: state
+  entity_id: !input 'blocker_boolean'
+  state: 'off'
+- condition: or
+  conditions:
+  - condition: state
+    entity_id: !input 'person_group'
+    state: not_home
+  - condition: time
+    after: time
+action:
+  - if:
+    - condition: state
+      entity_id: !input 'person_group'
+      state: not_home
+    then:
+      - service: notify.pushover
+        data:
+          title: HASS motion detection
+          message: |
+            <strong>Motion detected while no one is home!</strong>
+            The following sensor(s) report motion:
+            {{ triggered_sensors }}
+          data:
+            html: 1
+            sound: siren
+            priority: 1
+      - service: notify.all_iphones
+        data:
+          title: HASS motion detection
+          message: |
+            Motion detected while no one is home!
+            The following sensor(s) report motion:
+            {{ triggered_sensors }}
+  - if:
+    - condition: time
+      after: '23:59:00'
+    then:
+      - service: notify.pushover
+        data:
+          title: HASS motion detection
+          message: |
+            <strong>Motion detected at night!</strong>
+            The following sensor(s) report motion:
+            {{ triggered_sensors }}
+          data:
+            html: 1
+            sound: pianobar
+            priority: 1
+      - service: notify.all_iphones
+        data:
+          title: HASS motion detection
+          message: |
+            Motion detected at night!
+            The following sensor(s) report motion:
+            {{ triggered_sensors }}
+mode: single
