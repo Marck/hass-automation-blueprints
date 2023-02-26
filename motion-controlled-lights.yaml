@@ -29,6 +29,11 @@ blueprint:
         number:
           min: -90
           max: 90
+    blocker_entity:
+      name: Blocker entity
+      description: Target entity that blocks the automation from running when turned on
+      selector:
+        entity:
   source_url: https://github.com/Marck/home-assistant-automation-blueprints/blob/main/motion-controlled-lights.yaml
 mode: restart
 max_exceeded: silent
@@ -43,6 +48,9 @@ condition:
   - condition: template
     value_template: >
       {{ ((sun_elevation_below or sun_elevation_below == 0) and state_attr('sun.sun', 'elevation') | int(91) <= sun_elevation_below | int(-91)) }}
+  - condition: state
+    entity_id: !input 'blocker_entity'
+    state: 'off'
 action:
   - delay: >
       {% if int(no_motion_wait) >= 0 and trigger.to_state.state == "off" %}
