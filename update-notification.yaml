@@ -36,12 +36,6 @@ blueprint:
       selector:
         device:
           integration: mobile_app
-    is_ios:
-      name: Is it an iOS device?
-      description: Toggle if your selected device runs iOS, default is true
-      selector:
-        boolean: {}
-      default: true
   source_url: https://github.com/Marck/home-assistant-blueprints/blob/main/update-notification.yaml
 trigger:
   - platform: state
@@ -50,7 +44,6 @@ trigger:
     to: 'on'
 variables:
   updaters: !input 'updaters'
-  is_ios: !input 'is_ios'
   notify_device: !input 'notify_device'
   notification_title: !input 'notification_title'
   default_notification_message: |
