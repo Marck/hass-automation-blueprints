@@ -54,13 +54,24 @@ variables:
   day: !input 'day'
   threshold: !input 'threshold'
   exclude: !input 'exclude'
+  exclude_entities: >
+    {%- set ns = namespace(ret=[]) %}
+    {%- for key in ['device', 'area', 'entity', 'label'] %}
+      {%- set items = exclude.get(key ~ '_id', [])  %}
+      {%- if items %}
+        {%- set items = [ items ] if items is string else items %}
+        {%- set items = items if key == 'entity' else items | map(key ~ '_entities') | sum(start=[]) %}
+        {%- set ns.ret = ns.ret + [ items ] %}
+      {%- endif %}
+    {%- endfor %}
+    {{ ns.ret | sum(start=[]) }}
   sensors: >
     {% set result = namespace(sensors=[]) %} 
     {% for state in states.sensor
       | rejectattr('attributes.device_class', 'undefined')
       | selectattr('attributes.device_class', '==', 'battery') %} 
       {% if 0 <= state.state | int(-1) < threshold | int 
-        and not state.entity_id in exclude.entity_id
+        and not state.entity_id in exclude_entities
         and state.entity_id not in integration_entities("mobile_app") %}
         {% set result.sensors = result.sensors + [state.name ~ ' (' ~ state.state ~ '%)'] %}
       {% endif %}
@@ -69,7 +80,7 @@ variables:
       | rejectattr('attributes.device_class', 'undefined')
       | selectattr('attributes.device_class', '==', 'battery')
       | selectattr('state', '==', 'on') %}
-      {% if not state.entity_id in exclude.entity_id %}
+      {% if not state.entity_id in exclude_entities %}
         {% set result.sensors = result.sensors + [state.name] %}
       {% endif %}
     {% endfor %}
