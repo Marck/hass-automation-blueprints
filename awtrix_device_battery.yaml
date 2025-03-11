@@ -1,0 +1,191 @@
+---
+blueprint:
+  name: "[AWTRIX] Device Battery Monitor"
+  description: >
+    This blueprint will print out the battery status of a device available to home assistant and will refresh every minute.
+    It uses a custom icon set you need to install.
+
+    You can find all the icons here: https://github.com/t3kmor/AWTRIXDeviceBatteryMonitor/tree/main/icons/
+
+    ### On Battery Icons
+
+    ![](https://developer.lametric.com/content/apps/icon_thumbs/53204_icon_thumb.png?v=1)![](https://developer.lametric.com/content/apps/icon_thumbs/53205_icon_thumb.png?v=1)![](https://developer.lametric.com/content/apps/icon_thumbs/53207_icon_thumb.png?v=1)![](https://developer.lametric.com/content/apps/icon_thumbs/53208_icon_thumb.png?v=1)![](https://developer.lametric.com/content/apps/icon_thumbs/53209_icon_thumb.png?v=1)
+
+    ### Charging Icons
+
+    ![](https://developer.lametric.com/content/apps/icon_thumbs/53212_icon_thumb.gif?v=1)![](https://developer.lametric.com/content/apps/icon_thumbs/53213_icon_thumb.gif?v=1)![](https://developer.lametric.com/content/apps/icon_thumbs/53214_icon_thumb.gif?v=1)![](https://developer.lametric.com/content/apps/icon_thumbs/53215_icon_thumb.gif?v=1)![](https://developer.lametric.com/content/apps/icon_thumbs/53216_icon_thumb.gif?v=1)
+
+  domain: automation
+  input:
+    awtrix:
+      name: AWTRIX Device
+      description: Select the AWTRIX device
+      selector:
+        device:
+          filter:
+            - integration: mqtt
+              manufacturer: Blueforcer
+              model: AWTRIX 3
+    app_name:
+      name: AWTRIX Applicaiton name
+      description: This is the app name listed in the MQTT topic - it should be unique
+      selector:
+        text:
+      default: phone_battery
+    battery:
+      name: Phone (or device)
+      description: A phone connected via the mobile companion app
+      selector:
+        entity:
+          filter:
+            - integration: mobile_app
+              device_class: battery
+    message_text:
+      name: Text to display
+      description: Text to be displayed on AWTRIX
+      selector:
+        text:
+      default: phone
+    scroll_speed:
+      name: Scroll speed
+      description: Modifies the scroll speed. Enter a percentage value of the original scroll speed.
+      default: 100
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 10
+          unit_of_measurement: "%"
+          mode: slider
+    percent:
+      name: Show percentage
+      description: Show percentage of battery after text set above
+      default: true
+      selector:
+        boolean:
+    progress_color_0:
+      name: "Between 0% and 20%"
+      description: "Sets the color of the progress bar when the phone (or device) is between 0 and 20%."
+      default: [255, 0, 0]
+      selector:
+        color_rgb:
+    progress_color_20:
+      name: "Between 20% and 40%"
+      description: "Sets the color of the progress bar when the phone (or device) is between 20 and 40%."
+      default: [255, 127, 0]
+      selector:
+        color_rgb:
+    progress_color_40:
+      name: "Between 40% and 60%"
+      description: "Sets the color of the progress bar when the phone (or device) is between 40 and 60%."
+      default: [255, 255, 0]
+      selector:
+        color_rgb:
+    progress_color_60:
+      name: "Between 60% and 80%"
+      description: "Sets the color of the progress bar when the phone (or device) is between 60 and 80%."
+      default: [127, 255, 0]
+      selector:
+        color_rgb:
+    progress_color_80:
+      name: "Between 80% and 100%"
+      description: "Sets the color of the progress bar when the phone (or device) is between 80 and 100%."
+      default: [0, 255, 0]
+      selector:
+        color_rgb:
+    progress_background_color:
+      name: "Progress background color"
+      description: "Sets background color of progress bar."
+      default: [255, 255, 255]
+      selector:
+        color_rgb:
+    duration:
+      name: Duration (in seconds)
+      description: Sets how long the app should be displayed unit is seconds.
+      default: "6"
+    text_case:
+      name: Text Case
+      description: Select how you would like your text to display.
+      selector:
+        select:
+          options:
+            - label: Use global setting
+              value: "0"
+            - label: Force Uppercase
+              value: "1"
+            - label: Show as you entered it
+              value: "2"
+          mode: dropdown
+          custom_value: false
+          multiple: false
+          sort: false
+      default: "2"
+    push_icon:
+      name: Icon Mode
+      description: >
+        Please select the pushIcon setting for the icon
+          - `0`  Icon doesn't move
+          
+          - `1`  Icon moves with text and will not appear again
+          
+          - `2` Icon moves with text but appears again when the text starts to scroll again
+      selector:
+        select:
+          options:
+            - label: Icon doesn't move (default)
+              value: "0"
+            - label: Icon moves with text and will not appear again
+              value: "1"
+            - label: Icon moves with text but appears again when the text starts to scroll again
+              value: "2"
+      default: "0"
+
+mode: restart
+variables:
+  device_id: !input awtrix
+  app: !input app_name
+  awtrix:
+    "{{ iif( device_attr(device_id, 'name_by_user') != none, device_attr(device_id,
+    'name_by_user'), device_attr(device_id, 'name') ) }}"
+
+  battery_sensor: !input battery
+  message_text: !input message_text
+  push_icon: !input push_icon
+  duration_on: !input duration
+  text_case: !input text_case
+  scroll_speed: !input scroll_speed
+  battery_low: !input progress_color_0
+  battery_20: !input progress_color_20
+  battery_40: !input progress_color_40
+  battery_60: !input progress_color_60
+  battery_80: !input progress_color_80
+  progressBC: !input progress_background_color
+  payload: >-
+    {"icon":"{{ states[battery_sensor].attributes.icon 
+        | replace('mdi:','') 
+        | replace('90','80') 
+        | replace('70','60')
+        | replace('50','40')
+        | replace('30','20')}}",
+        "text":"{{message_text}} {{states[battery_sensor].state}}%",
+        "pushIcon":{{push_icon}},
+        "duration":{{duration_on}}, 
+        "textCase":{{text_case}}, 
+        "scrollSpeed":{{scroll_speed}},
+        "progress":"{{states[battery_sensor].state}}",
+        "progressBC":{{progressBC}},
+        "progressC":{% if states[battery_sensor].state >= "80" or states[battery_sensor].state == "100" %}{{battery_80}}{% elif states[battery_sensor].state >= "60" %}{{battery_60}}{% elif states[battery_sensor].state >= "40" %}{{battery_40}}{% elif states[battery_sensor].state >= "20" %}{{battery_20}}{% else %}{{battery_low}}{% endif %}},
+
+trigger:
+  - platform: time_pattern
+    minutes: /1
+
+condition: []
+action:
+  service: mqtt.publish
+  data:
+    qos: 0
+    retain: false
+    topic: "{{awtrix}}/custom/{{app}}"
+    payload: >
+      {{payload}}
