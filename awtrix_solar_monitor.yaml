@@ -1,11 +1,12 @@
 blueprint:
   name: "[AWTRIX] Solar Monitor"
-  description: 'This blueprint will show the current solar energy received.
-
+  description: |
+    This blueprint will show the current solar energy received.
     It uses a icons 54156 (solar-green), 50557 (solar-white-dyn), 50546 (solar-static)
     that you need to install.
 
-    '
+    It also requires a template sensor with the uptime of your Awtrix device in seconds. See 'Last reported helper' field for more information.
+    [Based off this blueprint](https://flows.blueforcer.de/flow/qRWNolZn5X4w)
   domain: automation
   input:
     awtrix:
@@ -18,6 +19,25 @@ blueprint:
             manufacturer: Blueforcer
             model: AWTRIX 3
           multiple: true
+    awtrix_last_reported:
+      name: Last reported helper
+      description: |
+        A template sensor providing the last reported time of your Awtrix device.
+        This prevents the automation from running if your Awtrix device is not reporting for more then 20seconds
+        
+        Create a template sensor using the following code:
+        ```
+        {% set var1=states.sensor.your_awtrix_device_id_uptime.last_reported %}
+        {% if (var1 != 'unknown') or (var1 != 'unavailable') %}
+          {{ '{:.0f}' .format(as_timestamp(now())-as_timestamp(var1)) }}
+        {% endif -%}
+        ```
+      selector:
+        entity:
+          filter:
+          - domain:
+            - sensor
+          multiple: false
     power_source:
       name: Power Sensor
       description: A sensor providing the current power received from your solar system.
@@ -104,21 +124,27 @@ variables:
     "{{ power_level_color }}"}'
   night_start: !input night_starts_after_time
   night_end: !input night_ends_after_time
+
 trigger:
 - platform: time_pattern
   minutes: /1
+
 condition:
+  - condition: numeric_state
+    entity_id: !input awtrix_last_reported
+    below: 20
+    enabled: true
+
 action:
 - choose:
   - alias: Skipping
     conditions:
     - condition: template
-      value_template: '{% set now_time = now().strftime("%H:%M") %} {% set night_start
+      value_template: |
+        {% set now_time = now().strftime("%H:%M") %} {% set night_start
         = night_start %} {% set night_end = night_end %} {{ (skip_during_night_hours
         and ((now_time < night_end) or (now_time > night_start))) or (skip_if_zero_watts
         and (power_level == 0)) }}
-
-        '
     sequence:
     - repeat:
         for_each: '{{ devices_topics }}'
@@ -132,12 +158,11 @@ action:
   - alias: Not skipping
     conditions:
     - condition: template
-      value_template: '{% set now_time = now().strftime("%H:%M") %} {% set night_start
-        = night_start %} {% set night_end = night_end %} {{ not((skip_during_night_hours
-        and ((now_time < night_end) or (now_time > night_start))) or (skip_if_zero_watts
-        and (power_level == 0))) }}
-
-        '
+      value_template: |
+        {% set now_time = now().strftime("%H:%M") %} 
+        {% set night_start = night_start %} 
+        {% set night_end = night_end %}
+        {{ not((skip_during_night_hours and ((now_time < night_end) or (now_time > night_start))) or (skip_if_zero_watts and (power_level == 0))) }}
     sequence:
     - repeat:
         for_each: '{{ devices_topics }}'

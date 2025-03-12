@@ -5,7 +5,10 @@ blueprint:
     This blueprint will print out the battery status of a device available to home assistant and will refresh every minute.
     It uses a custom icon set you need to install.
 
-    You can find all the icons here: https://github.com/t3kmor/AWTRIXDeviceBatteryMonitor/tree/main/icons/
+    You can find all the icons [here](https://github.com/t3kmor/AWTRIXDeviceBatteryMonitor/tree/main/icons/)
+    
+    It also requires a template sensor with the uptime of your Awtrix device in seconds. See 'Last reported helper' field for more information.
+    [Based off this blueprint](https://flows.blueforcer.de/flow/XBJpOq0Zorzw)
 
     ### On Battery Icons
 
@@ -14,7 +17,6 @@ blueprint:
     ### Charging Icons
 
     ![](https://developer.lametric.com/content/apps/icon_thumbs/53212_icon_thumb.gif?v=1)![](https://developer.lametric.com/content/apps/icon_thumbs/53213_icon_thumb.gif?v=1)![](https://developer.lametric.com/content/apps/icon_thumbs/53214_icon_thumb.gif?v=1)![](https://developer.lametric.com/content/apps/icon_thumbs/53215_icon_thumb.gif?v=1)![](https://developer.lametric.com/content/apps/icon_thumbs/53216_icon_thumb.gif?v=1)
-
   domain: automation
   input:
     awtrix:
@@ -26,8 +28,27 @@ blueprint:
             - integration: mqtt
               manufacturer: Blueforcer
               model: AWTRIX 3
+    awtrix_last_reported:
+      name: Last reported helper
+      description: |
+        A template sensor providing the last reported time of your Awtrix device.
+        This prevents the automation from running if your Awtrix device is not reporting for more then 20seconds
+        
+        Create a template sensor using the following code:
+        ```
+        {% set var1=states.sensor.your_awtrix_device_id_uptime.last_reported %}
+        {% if (var1 != 'unknown') or (var1 != 'unavailable') %}
+          {{ '{:.0f}' .format(as_timestamp(now())-as_timestamp(var1)) }}
+        {% endif -%}
+        ```
+      selector:
+        entity:
+          filter:
+          - domain:
+            - sensor
+          multiple: false
     app_name:
-      name: AWTRIX Applicaiton name
+      name: AWTRIX Application name
       description: This is the app name listed in the MQTT topic - it should be unique
       selector:
         text:
@@ -145,7 +166,7 @@ variables:
   device_id: !input awtrix
   app: !input app_name
   awtrix:
-    "{{ iif( device_attr(device_id, 'name_by_user') != none, device_attr(device_id,
+    "{{ if( device_attr(device_id, 'name_by_user') != none, device_attr(device_id,
     'name_by_user'), device_attr(device_id, 'name') ) }}"
 
   battery_sensor: !input battery
@@ -180,7 +201,12 @@ trigger:
   - platform: time_pattern
     minutes: /1
 
-condition: []
+condition:
+  - condition: numeric_state
+    entity_id: !input awtrix_last_reported
+    below: 20
+    enabled: true
+
 action:
   service: mqtt.publish
   data:
