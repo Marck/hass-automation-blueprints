@@ -146,9 +146,7 @@ blueprint:
       description: >
         Please select the pushIcon setting for the icon
           - `0`  Icon doesn't move
-          
           - `1`  Icon moves with text and will not appear again
-          
           - `2` Icon moves with text but appears again when the text starts to scroll again
       selector:
         select:
@@ -165,10 +163,12 @@ mode: restart
 variables:
   device_id: !input awtrix
   app: !input app_name
-  awtrix:
-    "{{ if( device_attr(device_id, 'name_by_user') != none, device_attr(device_id,
-    'name_by_user'), device_attr(device_id, 'name') ) }}"
-
+  awtrix: >
+    {% if device_attr(device_id, 'name_by_user') is not none %}
+      {{ device_attr(device_id, 'name_by_user') }}
+    {% else %}
+      {{- device_attr(device_id, 'name') }}
+    {% endif %}
   battery_sensor: !input battery
   message_text: !input message_text
   push_icon: !input push_icon
