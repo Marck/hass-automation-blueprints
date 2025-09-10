@@ -1,0 +1,92 @@
+blueprint:
+  name: Certificate Expiration Pushover
+  description: >
+    This automation blueprint notifies with a single Pushover message when one or
+    more SSL certificates are about to expire. Handles unknown/unavailable sensor states safely.
+  source_url: https://github.com/Marck/home-assistant-blueprints/blob/main/certificates-expiration-pushover.yaml
+  domain: automation
+  input:
+    certificates_input:
+      name: Certificates
+      description: List of certificate expiry entities to monitor
+      selector:
+        entity:
+          multiple: true
+          integration: cert_expiry
+    days_input:
+      name: Days before
+      description: Set how many days before expiration it should start sending notifications
+      default: 5
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: days
+          mode: slider
+          step: 1
+    time_input:
+      name: Time
+      description: What time of the day it should check and send the notification?
+      default: '15:00'
+      selector:
+        time: {}
+    target_input:
+      name: Pushover Target
+      description: What is the target to send the Pushover notification to?
+      selector:
+        text: {}
+    sound_input:
+      name: Pushover Sound
+      description: What is the soundname of the Pushover notification?
+      default: 'pianobar'
+      selector:
+        text: {}
+    priority_input:
+      name: Pushover Priority
+      description: What is the priority of the Pushover notification?
+      default: '0'
+      selector:
+        number:
+          min: -2
+          max: 2
+          mode: slider
+          step: 1
+
+trigger:
+  platform: time
+  at: !input 'time_input'
+
+variables:
+  days_var: !input 'days_input'
+  certs_var: !input 'certificates_input'
+  expiring_certs: >-
+    {% set ns = namespace(list=[]) %}
+    {% for cert in certs_var %}
+      {% set state_val = states(cert) %}
+      {% if state_val not in ['unknown', 'unavailable', None] %}
+        {% set expire_days = ((as_timestamp(state_val, default=0) - as_timestamp(now())) / 86400) | int %}
+        {% if expire_days >= 0 and expire_days < days_var %}
+          {% set name = state_attr(cert, 'friendly_name') or cert %}
+          {% set ns.list = ns.list + [ name ~ ": " ~ expire_days ~ " days" ] %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+    {{ ns.list }}
+
+action:
+  - choose:
+      - conditions: "{{ expiring_certs | count > 0 }}"
+        sequence:
+          - service: notify.pushover
+            data:
+              title: HASS SSL Certificate Expiration
+              message: >-
+                The following certificates are about to expire:
+
+                {{ expiring_certs | join('\n') }}
+              target: !input 'target_input'
+              data:
+                sound: !input 'sound_input'
+                priority: !input 'priority_input'
+                retry: 30
+                expire: 60
