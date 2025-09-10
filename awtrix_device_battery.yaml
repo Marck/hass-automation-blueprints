@@ -36,10 +36,17 @@ blueprint:
         
         Create a template sensor using the following code:
         ```
-        {% set var1=states.sensor.your_awtrix_device_id_uptime.last_reported %}
-        {% if (var1 != 'unknown') or (var1 != 'unavailable') %}
-          {{ '{:.0f}' .format(as_timestamp(now())-as_timestamp(var1)) }}
-        {% endif -%}
+        {% set sensor = states.sensor.awtrix_XXXXXX_uptime %}
+        {% if sensor is not none and sensor.last_reported is defined %}
+          {% set var1 = sensor.last_reported %}
+          {% if var1 is not none and var1 != 'unknown' and var1 != 'unavailable' %}
+            {{ '{:.0f}'.format(as_timestamp(now()) - as_timestamp(var1)) }}
+          {% else %}
+            9999
+          {% endif %}
+        {% else %}
+          9999
+        {% endif %}
         ```
       selector:
         entity:

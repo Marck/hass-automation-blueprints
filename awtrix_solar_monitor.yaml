@@ -27,10 +27,17 @@ blueprint:
         
         Create a template sensor using the following code:
         ```
-        {% set var1=states.sensor.your_awtrix_device_id_uptime.last_reported %}
-        {% if (var1 != 'unknown') or (var1 != 'unavailable') %}
-          {{ '{:.0f}' .format(as_timestamp(now())-as_timestamp(var1)) }}
-        {% endif -%}
+        {% set sensor = states.sensor.awtrix_XXXX_uptime %}
+        {% if sensor is not none and sensor.last_reported is defined %}
+          {% set var1 = sensor.last_reported %}
+          {% if var1 is not none and var1 != 'unknown' and var1 != 'unavailable' %}
+            {{ '{:.0f}'.format(as_timestamp(now()) - as_timestamp(var1)) }}
+          {% else %}
+            9999
+          {% endif %}
+        {% else %}
+          9999
+        {% endif %}
         ```
       selector:
         entity:
@@ -117,7 +124,7 @@ variables:
     %} {%- if (power_level <= threshold_high) and (power_level > threshold_low) %}{{"#FCFEFC"}}{%-
     endif %} {%- if power_level <= threshold_low %}{{"#FF4E1A"}}{%- endif %}'
   power_level_text: '{%- if power_level > 1000  %}{{ ((power_level | float(default=0))
-    / 1000) | round(1)}} kW{%- else %}{{power_level | round(0)}} W{%- endif %}'
+    / 1000) | round(1)}} kWh{%- else %}{{power_level | round(0)}} kWh{%- endif %}'
   skip_if_zero_watts: !input skip_if_zero_watts
   skip_during_night_hours: !input skip_during_night_hours
   payload: '{"icon":"{{ power_level_icon }}", "text": "{{ power_level_text }}",  "color":
@@ -127,7 +134,7 @@ variables:
 
 trigger:
 - platform: time_pattern
-  minutes: /1
+  minutes: /2
 
 condition:
   - condition: numeric_state
