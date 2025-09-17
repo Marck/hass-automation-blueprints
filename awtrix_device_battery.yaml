@@ -1,27 +1,27 @@
 ---
 blueprint:
-  name: "[AWTRIX] Device Battery Monitor"
+  name: "[AWTRIX] Multi-Device Battery Monitor"
   description: >
-    This blueprint will print out the battery status of a device available to home assistant and will refresh every minute.
-    It uses a custom icon set you need to install.
+    Show battery levels of multiple devices on an AWTRIX clock.  
+    Each device can have its own display text.  
+    All results are combined into one message string.
 
-    You can find all the icons [here](https://github.com/t3kmor/AWTRIXDeviceBatteryMonitor/tree/main/icons/)
+    You can find all the icons [here](https://github.com/t3kmor/AWTRIXDeviceBatteryMonitor/tree/main/icons/).
     
-    It also requires a template sensor with the uptime of your Awtrix device in seconds. See 'Last reported helper' field for more information.
-    [Based off this blueprint](https://flows.blueforcer.de/flow/XBJpOq0Zorzw)
+    Requires a template sensor with the uptime of your Awtrix device in seconds (see *Last reported helper*).  
+    Based on [this blueprint](https://flows.blueforcer.de/flow/XBJpOq0Zorzw).
 
-    ### On Battery Icons
-
-    ![](https://developer.lametric.com/content/apps/icon_thumbs/53204_icon_thumb.png?v=1)![](https://developer.lametric.com/content/apps/icon_thumbs/53205_icon_thumb.png?v=1)![](https://developer.lametric.com/content/apps/icon_thumbs/53207_icon_thumb.png?v=1)![](https://developer.lametric.com/content/apps/icon_thumbs/53208_icon_thumb.png?v=1)![](https://developer.lametric.com/content/apps/icon_thumbs/53209_icon_thumb.png?v=1)
-
-    ### Charging Icons
-
-    ![](https://developer.lametric.com/content/apps/icon_thumbs/53212_icon_thumb.gif?v=1)![](https://developer.lametric.com/content/apps/icon_thumbs/53213_icon_thumb.gif?v=1)![](https://developer.lametric.com/content/apps/icon_thumbs/53214_icon_thumb.gif?v=1)![](https://developer.lametric.com/content/apps/icon_thumbs/53215_icon_thumb.gif?v=1)![](https://developer.lametric.com/content/apps/icon_thumbs/53216_icon_thumb.gif?v=1)
   domain: automation
   input:
+    enable_debug:
+      name: Enable debug notification
+      description: If enabled, a notification will show the intermediate values for debugging.
+      default: false
+      selector:
+        boolean:
     awtrix:
       name: AWTRIX Device
-      description: Select the AWTRIX device
+      description: The AWTRIX device to send notifications to.
       selector:
         device:
           filter:
@@ -30,53 +30,52 @@ blueprint:
               model: AWTRIX 3
     awtrix_last_reported:
       name: Last reported helper
-      description: |
-        A template sensor providing the last reported time of your Awtrix device.
-        This prevents the automation from running if your Awtrix device is not reporting for more then 20seconds
-        
-        Create a template sensor using the following code:
-        ```
-        {% set sensor = states.sensor.awtrix_XXXXXX_uptime %}
-        {% if sensor is not none and sensor.last_reported is defined %}
-          {% set var1 = sensor.last_reported %}
-          {% if var1 is not none and var1 != 'unknown' and var1 != 'unavailable' %}
-            {{ '{:.0f}'.format(as_timestamp(now()) - as_timestamp(var1)) }}
-          {% else %}
-            9999
-          {% endif %}
-        {% else %}
-          9999
-        {% endif %}
-        ```
+      description: Template sensor that reports the uptime of your Awtrix in seconds.
       selector:
         entity:
           filter:
-          - domain:
-            - sensor
-          multiple: false
-    app_name:
-      name: AWTRIX Application name
-      description: This is the app name listed in the MQTT topic - it should be unique
-      selector:
-        text:
-      default: phone_battery
-    battery:
-      name: Phone (or device)
-      description: A phone connected via the mobile companion app
+            - domain: sensor
+    awtrix_matrix_entity:
+      name: Matrix (screen) entity
+      description: The entity that controls the Awtrix screen state.
       selector:
         entity:
+          filter:
+            - domain: light
+    app_name:
+      name: AWTRIX Application name
+      description: Unique name for this custom app in AWTRIX MQTT.
+      selector:
+        text:
+      default: multi_battery
+    devices:
+      name: Devices to monitor
+      description: >
+        Select one or more battery sensors.  
+        The order must align with the labels you provide below.
+      selector:
+        entity:
+          multiple: true
           filter:
             - integration: mobile_app
               device_class: battery
-    message_text:
-      name: Text to display
-      description: Text to be displayed on AWTRIX
+    labels:
+      name: Labels for devices
+      description: >
+        Enter one label per line, in the same order as the devices.  
+        Example:
+        ```
+        iPhone X
+        iPad X
+        iPhone Y
+        Watch
+        ```
       selector:
         text:
-      default: phone
+          multiline: true
     scroll_speed:
       name: Scroll speed
-      description: Modifies the scroll speed. Enter a percentage value of the original scroll speed.
+      description: Speed of text scrolling on the display (0–100%).
       default: 100
       selector:
         number:
@@ -85,55 +84,13 @@ blueprint:
           step: 10
           unit_of_measurement: "%"
           mode: slider
-    percent:
-      name: Show percentage
-      description: Show percentage of battery after text set above
-      default: true
-      selector:
-        boolean:
-    progress_color_0:
-      name: "Between 0% and 20%"
-      description: "Sets the color of the progress bar when the phone (or device) is between 0 and 20%."
-      default: [255, 0, 0]
-      selector:
-        color_rgb:
-    progress_color_20:
-      name: "Between 20% and 40%"
-      description: "Sets the color of the progress bar when the phone (or device) is between 20 and 40%."
-      default: [255, 127, 0]
-      selector:
-        color_rgb:
-    progress_color_40:
-      name: "Between 40% and 60%"
-      description: "Sets the color of the progress bar when the phone (or device) is between 40 and 60%."
-      default: [255, 255, 0]
-      selector:
-        color_rgb:
-    progress_color_60:
-      name: "Between 60% and 80%"
-      description: "Sets the color of the progress bar when the phone (or device) is between 60 and 80%."
-      default: [127, 255, 0]
-      selector:
-        color_rgb:
-    progress_color_80:
-      name: "Between 80% and 100%"
-      description: "Sets the color of the progress bar when the phone (or device) is between 80 and 100%."
-      default: [0, 255, 0]
-      selector:
-        color_rgb:
-    progress_background_color:
-      name: "Progress background color"
-      description: "Sets background color of progress bar."
-      default: [255, 255, 255]
-      selector:
-        color_rgb:
     duration:
       name: Duration (in seconds)
-      description: Sets how long the app should be displayed unit is seconds.
+      description: How long the message is displayed on the Awtrix.
       default: "6"
     text_case:
       name: Text Case
-      description: Select how you would like your text to display.
+      description: Choose how the message text is displayed.
       selector:
         select:
           options:
@@ -143,18 +100,10 @@ blueprint:
               value: "1"
             - label: Show as you entered it
               value: "2"
-          mode: dropdown
-          custom_value: false
-          multiple: false
-          sort: false
       default: "2"
     push_icon:
       name: Icon Mode
-      description: >
-        Please select the pushIcon setting for the icon
-          - `0`  Icon doesn't move
-          - `1`  Icon moves with text and will not appear again
-          - `2` Icon moves with text but appears again when the text starts to scroll again
+      description: Defines how the icon behaves when the text scrolls.
       selector:
         select:
           options:
@@ -162,47 +111,48 @@ blueprint:
               value: "0"
             - label: Icon moves with text and will not appear again
               value: "1"
-            - label: Icon moves with text but appears again when the text starts to scroll again
+            - label: Icon moves with text but reappears with scrolling
               value: "2"
       default: "0"
-
 mode: restart
 variables:
   device_id: !input awtrix
+  debug: !input enable_debug
   app: !input app_name
   awtrix: >
     {% if device_attr(device_id, 'name_by_user') is not none %}
       {{ device_attr(device_id, 'name_by_user') }}
     {% else %}
-      {{- device_attr(device_id, 'name') }}
+      {{ device_attr(device_id, 'name') }}
     {% endif %}
-  battery_sensor: !input battery
-  message_text: !input message_text
+  devices: !input devices
+  labels_raw: !input labels
+  labels: >
+    {{ labels_raw.split('\n') | map('trim') | reject('equalto','') | list }}
   push_icon: !input push_icon
   duration_on: !input duration
   text_case: !input text_case
   scroll_speed: !input scroll_speed
-  battery_low: !input progress_color_0
-  battery_20: !input progress_color_20
-  battery_40: !input progress_color_40
-  battery_60: !input progress_color_60
-  battery_80: !input progress_color_80
-  progressBC: !input progress_background_color
   payload: >-
-    {"icon":"{{ states[battery_sensor].attributes.icon 
-        | replace('mdi:','') 
-        | replace('90','80') 
-        | replace('70','60')
-        | replace('50','40')
-        | replace('30','20')}}",
-        "text":"{{message_text}} {{states[battery_sensor].state}}%",
-        "pushIcon":{{push_icon}},
-        "duration":{{duration_on}}, 
-        "textCase":{{text_case}}, 
-        "scrollSpeed":{{scroll_speed}},
-        "progress":"{{states[battery_sensor].state}}",
-        "progressBC":{{progressBC}},
-        "progressC":{% if states[battery_sensor].state >= "80" or states[battery_sensor].state == "100" %}{{battery_80}}{% elif states[battery_sensor].state >= "60" %}{{battery_60}}{% elif states[battery_sensor].state >= "40" %}{{battery_40}}{% elif states[battery_sensor].state >= "20" %}{{battery_20}}{% else %}{{battery_low}}{% endif %}},
+    {%- set ns = namespace(text=[]) -%}
+    {%- for i in range(devices|count) -%}
+      {%- set sensor = devices[i] -%}
+      {%- set label = labels[i] if labels|count > i else sensor -%}
+      {%- set state = states(sensor) -%}
+      {%- if state not in ['unknown','unavailable','none',''] -%}
+        {%- set battery = state | int(0) -%}
+        {%- set txt = label ~ ': ' ~ battery ~ '%' -%}
+        {%- set ns.text = ns.text + [txt] -%}
+      {%- endif -%}
+    {%- endfor -%}
+    {
+      "icon":"battery",
+      "text":"{{ ns.text | join('  |  ') }}",
+      "pushIcon":{{push_icon}},
+      "duration":{{duration_on}},
+      "textCase":{{text_case}},
+      "scrollSpeed":{{scroll_speed}}
+    }
 
 trigger:
   - platform: time_pattern
@@ -212,13 +162,23 @@ condition:
   - condition: numeric_state
     entity_id: !input awtrix_last_reported
     below: 20
-    enabled: true
+  - condition: state
+    entity_id: !input awtrix_matrix_entity
+    state: 'on'
 
 action:
-  service: mqtt.publish
-  data:
-    qos: 0
-    retain: false
-    topic: "{{awtrix}}/custom/{{app}}"
-    payload: >
-      {{payload}}
+  - if:
+      - condition: template
+        value_template: "{{ debug }}"
+    then:
+      - service: persistent_notification.create
+        data:
+          title: "AWTRIX Battery Debug"
+          message: "{{payload}}"  
+    else:
+      - service: mqtt.publish
+        data:
+          qos: 0
+          retain: false
+          topic: "{{awtrix}}/custom/{{app}}"
+          payload: "{{payload}}"
