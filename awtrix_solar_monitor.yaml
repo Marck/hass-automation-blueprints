@@ -45,6 +45,17 @@ blueprint:
           - domain:
             - sensor
           multiple: false
+    awtrix_matrix_entity:
+      name: Matrix (screen) entity
+      description: |
+        The Awtrix Matrix (screen) sensor entity.
+        This determines if the screen is turned on. If the screen is not turned on, the message doesn't have to be send.
+      selector:
+        entity:
+          filter:
+          - domain:
+            - light
+          multiple: false
     power_source:
       name: Power Sensor
       description: A sensor providing the current power received from your solar system.
@@ -140,6 +151,10 @@ condition:
   - condition: numeric_state
     entity_id: !input awtrix_last_reported
     below: 20
+    enabled: true
+  - condition: state
+    entity_id: !input awtrix_matrix_entity
+    state: 'on'
     enabled: true
 
 action:
