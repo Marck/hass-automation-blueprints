@@ -2,7 +2,7 @@
 blueprint:
   name: "[AWTRIX] Multi-Device Battery Monitor"
   description: >
-    Show battery levels of multiple devices on an AWTRIX clock.  
+    Show battery levels of multiple devices on an AWTRIX clock if level is lower then set value.  
     Each device can have its own display text.  
     All results are combined into one message string.
 
@@ -10,7 +10,6 @@ blueprint:
     
     Requires a template sensor with the uptime of your Awtrix device in seconds (see *Last reported helper*).  
     Based on [this blueprint](https://flows.blueforcer.de/flow/XBJpOq0Zorzw).
-
   domain: automation
   input:
     enable_debug:
@@ -59,9 +58,22 @@ blueprint:
           filter:
             - integration: mobile_app
               device_class: battery
+    battery_level:
+      name: Battery level
+      description: |
+        Minimal battery level for devices. 
+        Only run the automation when one or more of the devices have battery levels below this set value.
+      default: 40
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          mode: slider
+          step: 1.0
+          unit_of_measurement: '%'
     labels:
       name: Labels for devices
-      description: >
+      description: |
         Enter one label per line, in the same order as the devices.  
         Example:
         ```
@@ -126,6 +138,7 @@ variables:
       {{ device_attr(device_id, 'name') }}
     {% endif %}
   devices: !input devices
+  battery_level: !input battery_level
   labels_raw: !input labels
   labels: >
     {{ labels_raw.split('\n') | map('trim') | reject('equalto','') | list }}
@@ -165,6 +178,19 @@ condition:
   - condition: state
     entity_id: !input awtrix_matrix_entity
     state: 'on'
+  - condition: template
+    value_template: >
+      {% set battery_threshold = battery_level | int %}
+      {% set ns = namespace(low_battery=false) %}
+      {% for device in devices %}
+        {% set state = states(device) %}
+        {% if state not in ['unknown','unavailable','none',''] %}
+          {% if state | int(100) < battery_threshold %}
+            {% set ns.low_battery = true %}
+          {% endif %}
+        {% endif %}
+      {% endfor %}
+      {{ ns.low_battery }}
 
 action:
   - if:
@@ -179,6 +205,14 @@ action:
       - service: mqtt.publish
         data:
           qos: 0
-          retain: false
+          retain: true
           topic: "{{awtrix}}/custom/{{app}}"
           payload: "{{payload}}"
+      - delay:
+          seconds: "{{duration_on}}"
+      - service: mqtt.publish
+        data:
+          qos: 0
+          retain: true
+          topic: "{{awtrix}}/custom/{{app}}"
+          payload: "{}"
