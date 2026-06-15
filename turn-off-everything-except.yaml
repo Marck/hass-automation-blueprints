@@ -1,0 +1,153 @@
+blueprint:
+  name: Turn off everything except labelled devices and entities
+  description: >
+    Turn off all lights, switches, media players and climate entities across
+    every area, except for the devices and entities carrying a configurable
+    label (default `dontturnoff`). Can be triggered at a configurable time
+    and/or by an `input_button`. Supports a debug mode that only sends a
+    persistent notification listing what *would* be turned off.
+  domain: automation
+  input:
+    exclude_labels:
+      name: Labels to keep on
+      description: >
+        Devices and entities carrying one of these labels are excluded and will
+        NOT be turned off. Defaults to the `dontturnoff` label.
+      default:
+        - dontturnoff
+      selector:
+        label:
+          multiple: true
+    trigger_time:
+      name: Trigger time
+      description: Time of day at which everything is turned off.
+      default: '01:00:00'
+      selector:
+        time: {}
+    trigger_button:
+      name: Trigger button
+      description: >
+        Optional `input_button` that, when pressed, turns everything off
+        immediately. Leave empty to only use the time trigger.
+      default: []
+      selector:
+        entity:
+          filter:
+            domain: input_button
+          multiple: false
+    debug_mode:
+      name: Debug mode
+      description: >
+        When enabled, nothing is turned off. Instead a persistent notification
+        is created listing the entities that would have been turned off. Useful
+        for verifying the exclude labels before running for real.
+      default: false
+      selector:
+        boolean: {}
+  source_url: https://github.com/Marck/home-assistant-blueprints/blob/main/turn-off-everything-except.yaml
+mode: single
+max_exceeded: silent
+variables:
+  state: 'on'
+  debug_mode: !input debug_mode
+  exclude_labels: !input exclude_labels
+  # Entities to keep on: directly labelled entities plus every entity that
+  # belongs to a labelled device.
+  excluded_entities: >
+    {% set ns = namespace(entities=[]) %}
+    {% for label in exclude_labels %}
+      {% set ns.entities = ns.entities + label_entities(label) %}
+      {% for device in label_devices(label) %}
+        {% set ns.entities = ns.entities + device_entities(device) %}
+      {% endfor %}
+    {% endfor %}
+    {{ ns.entities | unique | list }}
+  areas: >
+    {% set areas = states
+      | selectattr('attributes.device_class', 'defined')
+      | map(attribute='entity_id')
+      | map('area_id') | unique | reject('none') | list %}
+    {{ areas | list }}
+  lights: >
+    {% set ns = namespace(entities=[]) %}
+    {% for area in areas %}
+      {% set ns.entities = ns.entities + expand(area_entities(area) | select('match', 'light'))
+        | selectattr('state', 'eq', state) | map(attribute='entity_id') | list %}
+    {% endfor %}
+    {{ ns.entities | reject('in', excluded_entities) | list }}
+  switches: >
+    {% set ns = namespace(entities=[]) %}
+    {% for area in areas %}
+      {% set ns.entities = ns.entities + expand(area_entities(area) | select('match', 'switch'))
+        | selectattr('state', 'eq', state) | map(attribute='entity_id') | list %}
+    {% endfor %}
+    {{ ns.entities | reject('in', excluded_entities) | list }}
+  media_players: >
+    {% set ns = namespace(entities=[]) %}
+    {% for area in areas %}
+      {% set ns.entities = ns.entities + expand(area_entities(area) | select('match', 'media_player'))
+        | selectattr('state', 'eq', state) | map(attribute='entity_id') | list %}
+    {% endfor %}
+    {{ ns.entities | reject('in', excluded_entities) | list }}
+  climate: >
+    {% set ns = namespace(entities=[]) %}
+    {% for area in areas %}
+      {% set ns.entities = ns.entities + expand(area_entities(area) | select('match', 'climate'))
+        | selectattr('state', 'ne', 'off') | map(attribute='entity_id') | list %}
+    {% endfor %}
+    {{ ns.entities | reject('in', excluded_entities) | list }}
+trigger:
+  - platform: time
+    at: !input trigger_time
+    id: '1'
+  - platform: state
+    entity_id: !input trigger_button
+    id: '2'
+condition: []
+action:
+  - if:
+      - condition: template
+        value_template: '{{ debug_mode }}'
+    then:
+      - service: persistent_notification.create
+        data:
+          title: 'Automation Debug: Turn Off Everything Except'
+          message: |
+            DEBUG_MODE={{ debug_mode }}
+            Excluded (kept on): {{ excluded_entities }}
+            Lights to turn off: {{ lights }}
+            Switches to turn off: {{ switches }}
+            Media players to turn off: {{ media_players }}
+            Climate to turn off: {{ climate }}
+  - if:
+      - condition: template
+        value_template: '{{ not debug_mode and lights | length > 0 }}'
+    then:
+      - service: light.turn_off
+        target:
+          entity_id: '{{ lights }}'
+        alias: Turn off Lights
+  - if:
+      - condition: template
+        value_template: '{{ not debug_mode and switches | length > 0 }}'
+    then:
+      - service: switch.turn_off
+        target:
+          entity_id: '{{ switches }}'
+        alias: Turn off Switches
+  - if:
+      - condition: template
+        value_template: '{{ not debug_mode and media_players | length > 0 }}'
+    then:
+      - service: media_player.turn_off
+        target:
+          entity_id: '{{ media_players }}'
+        alias: Turn off Media Players
+  - if:
+      - condition: template
+        value_template: '{{ not debug_mode and climate | length > 0 }}'
+    then:
+      - service: climate.turn_off
+        target:
+          entity_id: '{{ climate }}'
+        alias: Turn off Climate
