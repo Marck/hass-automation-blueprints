@@ -48,7 +48,6 @@ blueprint:
 mode: single
 max_exceeded: silent
 variables:
-  state: 'on'
   debug_mode: !input debug_mode
   exclude_labels: !input exclude_labels
   # Entities to keep on: directly labelled entities plus every entity that
@@ -62,40 +61,24 @@ variables:
       {% endfor %}
     {% endfor %}
     {{ ns.entities | unique | list }}
-  areas: >
-    {% set areas = states
-      | selectattr('attributes.device_class', 'defined')
-      | map(attribute='entity_id')
-      | map('area_id') | unique | reject('none') | list %}
-    {{ areas | list }}
+  # Select directly from each domain's states: this covers every area AND
+  # entities without an area, and doesn't depend on entities exposing a
+  # device_class (the old area-from-device_class derivation skipped areas that
+  # only held plain lights/switches).
   lights: >
-    {% set ns = namespace(entities=[]) %}
-    {% for area in areas %}
-      {% set ns.entities = ns.entities + expand(area_entities(area) | select('match', 'light'))
-        | selectattr('state', 'eq', state) | map(attribute='entity_id') | list %}
-    {% endfor %}
-    {{ ns.entities | reject('in', excluded_entities) | list }}
+    {{ states.light | selectattr('state', 'eq', 'on')
+       | map(attribute='entity_id') | reject('in', excluded_entities) | list }}
   switches: >
-    {% set ns = namespace(entities=[]) %}
-    {% for area in areas %}
-      {% set ns.entities = ns.entities + expand(area_entities(area) | select('match', 'switch'))
-        | selectattr('state', 'eq', state) | map(attribute='entity_id') | list %}
-    {% endfor %}
-    {{ ns.entities | reject('in', excluded_entities) | list }}
+    {{ states.switch | selectattr('state', 'eq', 'on')
+       | map(attribute='entity_id') | reject('in', excluded_entities) | list }}
   media_players: >
-    {% set ns = namespace(entities=[]) %}
-    {% for area in areas %}
-      {% set ns.entities = ns.entities + expand(area_entities(area) | select('match', 'media_player'))
-        | selectattr('state', 'eq', state) | map(attribute='entity_id') | list %}
-    {% endfor %}
-    {{ ns.entities | reject('in', excluded_entities) | list }}
+    {{ states.media_player
+       | rejectattr('state', 'in', ['off', 'unavailable', 'unknown', 'standby', 'idle'])
+       | map(attribute='entity_id') | reject('in', excluded_entities) | list }}
   climate: >
-    {% set ns = namespace(entities=[]) %}
-    {% for area in areas %}
-      {% set ns.entities = ns.entities + expand(area_entities(area) | select('match', 'climate'))
-        | selectattr('state', 'ne', 'off') | map(attribute='entity_id') | list %}
-    {% endfor %}
-    {{ ns.entities | reject('in', excluded_entities) | list }}
+    {{ states.climate
+       | rejectattr('state', 'in', ['off', 'unavailable', 'unknown'])
+       | map(attribute='entity_id') | reject('in', excluded_entities) | list }}
 trigger:
   - platform: time
     at: !input trigger_time
