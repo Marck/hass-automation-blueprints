@@ -8,7 +8,7 @@ blueprint:
     threshold:
       name: Battery warning level threshold
       description: |
-        Battery sensors below threshold are assumed to be low-battery 
+        Battery sensors below threshold are assumed to be low-battery
         (as well as binary battery sensors with value 'on').
       default: 20
       selector:
@@ -21,7 +21,7 @@ blueprint:
     interval:
       name: Interval in *minutes* to test on
       description: |
-        Test is run at configured interval in minutes. 
+        Test is run at configured interval in minutes.
         Use following format: `/minutes`, for example every minute: `/2`.
       default: '/2'
     optional_condition:
@@ -36,7 +36,7 @@ blueprint:
     exclude:
       name: Excluded Sensors
       description: |
-        Battery sensors (e.g. smartphone) to exclude from detection. 
+        Battery sensors (e.g. smartphone) to exclude from detection.
         Only entities and labels are supported, devices must be expanded!
       default:
         entity_id: []
@@ -47,8 +47,8 @@ blueprint:
     actions:
       name: Actions
       description: |
-        Notifications or similar to be run. 
-        {{sensors}} is replaced with the names 
+        Notifications or similar to be run.
+        {{sensors}} is replaced with the names
         of the sensors being low on battery.
       selector:
         action: {}
@@ -69,11 +69,11 @@ variables:
     {%- endfor %}
     {{ ns.ret | sum(start=[]) }}
   sensors: >
-    {% set result = namespace(sensors=[]) %} 
+    {% set result = namespace(sensors=[]) %}
     {% for state in states.sensor
       | rejectattr('attributes.device_class', 'undefined')
-      | selectattr('attributes.device_class', '==', 'battery') %} 
-      {% if 0 <= state.state | int(-1) < threshold | int 
+      | selectattr('attributes.device_class', '==', 'battery') %}
+      {% if 0 <= state.state | int(-1) < threshold | int
         and not state.entity_id in exclude_entities
         and state.entity_id not in integration_entities("mobile_app") %}
         {% set result.sensors = result.sensors + [state.name ~ ' (' ~ state.state ~ '%)'] %}
@@ -91,7 +91,7 @@ variables:
 trigger:
 - platform: time_pattern
   minutes: !input 'interval'
-condition: []  
+condition: []
 action:
   - if:
     - condition: template

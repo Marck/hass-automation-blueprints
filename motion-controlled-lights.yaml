@@ -1,6 +1,6 @@
-blueprint: 
+blueprint:
   name: Turn on/off lights based on motion sensor area
-  description: Turn lights on or off based on the area the motion sensor is in that detected motion 
+  description: Turn lights on or off based on the area the motion sensor is in that detected motion
     or stopped detecting motion
   domain: automation
   input:
@@ -39,7 +39,7 @@ variables:
 trigger:
 - platform: state
   entity_id: !input 'motion_entities'
-condition: 
+condition:
 - condition: template
   value_template: >
     {{ ((sun_elevation_below or sun_elevation_below == 0) and state_attr('sun.sun', 'elevation') | int(91) <= sun_elevation_below | int(-91)) }}
@@ -64,7 +64,7 @@ action:
         {% set sensor_state = "off" %}
         {% set light_state = "on" %}
       {% endif %}
-        {% set areas = states.binary_sensor | selectattr('attributes.device_class', 'defined') 
+        {% set areas = states.binary_sensor | selectattr('attributes.device_class', 'defined')
           | selectattr('entity_id', 'in', motion_entities)
           | selectattr('attributes.device_class', '==', 'motion')
           | selectattr('state', 'eq', sensor_state) | map(attribute='entity_id')

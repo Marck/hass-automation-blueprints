@@ -1,0 +1,46 @@
+# Validates every blueprint before it reaches anyone consuming this repo.
+#
+# NOTE: this repo is imported as a Home Assistant blueprint folder, and HA
+# loads *every* `*.yaml` file it finds there. So CI config must avoid that
+# extension: the lint config is `.yamllint` (no extension) and this workflow is
+# `.yml`, not `.yaml`. Do not add non-blueprint `*.yaml` files to this repo.
+---
+name: Validate blueprints
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  yamllint:
+    name: YAML Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Run yamllint
+        run: yamllint -c .yamllint .
+
+  blueprint-schema:
+    name: Blueprint schema
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read HA version
+        id: ha
+        run: echo "version=$(cat .HA_VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Validate blueprints against Home Assistant's schema
+        run: |
+          version="${{ steps.ha.outputs.version }}"
+          docker pull -q "ghcr.io/home-assistant/home-assistant:${version}"
+          docker run --rm --entrypoint "" \
+            -v "$(pwd):/config" \
+            "ghcr.io/home-assistant/home-assistant:${version}" \
+            sh -c 'python /config/bin/validate_blueprints.py /config/*.yaml'

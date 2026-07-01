@@ -24,7 +24,7 @@ blueprint:
       description: |
         A template sensor providing the last reported time of your Awtrix device.
         This prevents the automation from running if your Awtrix device is not reporting for more then 20seconds
-        
+
         Create a template sensor using the following code:
         ```
         {% set sensor = states.sensor.awtrix_XXXX_uptime %}
@@ -181,8 +181,8 @@ action:
     conditions:
     - condition: template
       value_template: |
-        {% set now_time = now().strftime("%H:%M") %} 
-        {% set night_start = night_start %} 
+        {% set now_time = now().strftime("%H:%M") %}
+        {% set night_start = night_start %}
         {% set night_end = night_end %}
         {{ not((skip_during_night_hours and ((now_time < night_end) or (now_time > night_start))) or (skip_if_zero_watts and (power_level == 0))) }}
     sequence:
