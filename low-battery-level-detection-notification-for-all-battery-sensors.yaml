@@ -66,11 +66,11 @@ variables:
     {%- endfor %}
     {{ ns.ret | sum(start=[]) }}
   sensors: >
-    {% set result = namespace(sensors=[]) %} 
+    {% set result = namespace(sensors=[]) %}
     {% for state in states.sensor
       | rejectattr('attributes.device_class', 'undefined')
-      | selectattr('attributes.device_class', '==', 'battery') %} 
-      {% if 0 <= state.state | int(-1) < threshold | int 
+      | selectattr('attributes.device_class', '==', 'battery') %}
+      {% if 0 <= state.state | int(-1) < threshold | int
         and not state.entity_id in exclude_entities
         and state.entity_id not in integration_entities("mobile_app") %}
         {% set result.sensors = result.sensors + [state.name ~ ' (' ~ state.state ~ '%)'] %}
@@ -88,7 +88,7 @@ variables:
 trigger:
 - platform: time
   at: !input 'time'
-condition:  []
+condition: []
 action:
   - if:
     - condition: template

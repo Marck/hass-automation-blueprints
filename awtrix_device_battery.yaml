@@ -2,13 +2,13 @@
 blueprint:
   name: "[AWTRIX] Multi-Device Battery Monitor"
   description: >
-    Show battery levels of multiple devices on an AWTRIX clock if level is lower then set value.  
-    Each device can have its own display text.  
+    Show battery levels of multiple devices on an AWTRIX clock if level is lower then set value.
+    Each device can have its own display text.
     All results are combined into one message string.
 
     You can find all the icons [here](https://github.com/t3kmor/AWTRIXDeviceBatteryMonitor/tree/main/icons/).
-    
-    Requires a template sensor with the uptime of your Awtrix device in seconds (see *Last reported helper*).  
+
+    Requires a template sensor with the uptime of your Awtrix device in seconds (see *Last reported helper*).
     Based on [this blueprint](https://flows.blueforcer.de/flow/XBJpOq0Zorzw).
   domain: automation
   input:
@@ -50,7 +50,7 @@ blueprint:
     devices:
       name: Devices to monitor
       description: >
-        Select one or more battery sensors.  
+        Select one or more battery sensors.
         The order must align with the labels you provide below.
       selector:
         entity:
@@ -61,7 +61,7 @@ blueprint:
     battery_level:
       name: Battery level
       description: |
-        Minimal battery level for devices. 
+        Minimal battery level for devices.
         Only run the automation when one or more of the devices have battery levels below this set value.
       default: 40
       selector:
@@ -74,7 +74,7 @@ blueprint:
     labels:
       name: Labels for devices
       description: |
-        Enter one label per line, in the same order as the devices.  
+        Enter one label per line, in the same order as the devices.
         Example:
         ```
         iPhone X
@@ -200,7 +200,7 @@ action:
       - service: persistent_notification.create
         data:
           title: "AWTRIX Battery Debug"
-          message: "{{payload}}"  
+          message: "{{payload}}"
     else:
       - service: mqtt.publish
         data:

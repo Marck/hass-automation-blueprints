@@ -1,0 +1,34 @@
+---
+extends: default
+
+rules:
+  # Blueprints are verbose; long description lines are common
+  line-length:
+    max: 200
+    level: warning
+
+  # HA uses on/off as well as true/false
+  truthy:
+    allowed-values: ["true", "false", "yes", "no", "on", "off"]
+    check-keys: false
+
+  # HA files do not use document start markers
+  document-start: disable
+
+  # Allow single-space after comment marker
+  comments:
+    min-spaces-from-content: 1
+
+  # Indentation: 2 spaces. Blueprints are hand-authored and HA-UI-exported, so
+  # they freely mix indented and unindented sequences even within one file;
+  # don't force a reformat of that (`whatever`), but still catch real mapping
+  # mis-indentation.
+  indentation:
+    spaces: 2
+    indent-sequences: whatever
+    check-multi-line-strings: false
+
+  # Allow empty lines inside blocks
+  empty-lines:
+    max: 2
+    max-end: 1
