@@ -6,6 +6,10 @@ blueprint:
     label (default `dontturnoff`). Can be triggered at a configurable time
     and/or by an `input_button`. Supports a debug mode that only sends a
     persistent notification listing what *would* be turned off.
+
+    After the initial turn-off it re-checks and retries anything still on, so a
+    dropped command on a congested Zigbee/cloud mesh no longer leaves a random
+    handful of devices on.
   domain: automation
   input:
     exclude_labels:
@@ -44,7 +48,7 @@ blueprint:
       default: false
       selector:
         boolean: {}
-  source_url: https://github.com/Marck/home-assistant-blueprints/blob/main/turn-off-everything-except.yaml
+  source_url: https://github.com/Marck/hass-automation-blueprints/blob/main/turn-off-everything-except.yaml
 mode: single
 max_exceeded: silent
 variables:
@@ -102,35 +106,67 @@ action:
             Switches to turn off: {{ switches }}
             Media players to turn off: {{ media_players }}
             Climate to turn off: {{ climate }}
-  - if:
-      - condition: template
-        value_template: '{{ not debug_mode and lights | length > 0 }}'
-    then:
-      - service: light.turn_off
-        target:
-          entity_id: '{{ lights }}'
-        alias: Turn off Lights
-  - if:
-      - condition: template
-        value_template: '{{ not debug_mode and switches | length > 0 }}'
-    then:
-      - service: switch.turn_off
-        target:
-          entity_id: '{{ switches }}'
-        alias: Turn off Switches
-  - if:
-      - condition: template
-        value_template: '{{ not debug_mode and media_players | length > 0 }}'
-    then:
-      - service: media_player.turn_off
-        target:
-          entity_id: '{{ media_players }}'
-        alias: Turn off Media Players
-  - if:
-      - condition: template
-        value_template: '{{ not debug_mode and climate | length > 0 }}'
-    then:
-      - service: climate.turn_off
-        target:
-          entity_id: '{{ climate }}'
-        alias: Turn off Climate
+    else:
+      # A single batched turn_off can silently drop commands on a congested
+      # Zigbee/cloud mesh, leaving a random handful of devices on. So we loop:
+      # re-evaluate what is *still* on (minus the excluded entities), turn those
+      # off, wait for them to report their new state, and repeat until nothing is
+      # left or we hit the pass cap. Each pass targets fewer devices, so dropped
+      # commands get another chance without re-commanding what already went off.
+      - repeat:
+          sequence:
+            - alias: Re-evaluate what is still on
+              variables:
+                on_lights: >
+                  {{ states.light | selectattr('state', 'eq', 'on')
+                     | map(attribute='entity_id')
+                     | reject('in', excluded_entities) | list }}
+                on_switches: >
+                  {{ states.switch | selectattr('state', 'eq', 'on')
+                     | map(attribute='entity_id')
+                     | reject('in', excluded_entities) | list }}
+                on_media: >
+                  {{ states.media_player
+                     | rejectattr('state', 'in',
+                        ['off', 'unavailable', 'unknown', 'standby', 'idle'])
+                     | map(attribute='entity_id')
+                     | reject('in', excluded_entities) | list }}
+                on_climate: >
+                  {{ states.climate
+                     | rejectattr('state', 'in', ['off', 'unavailable', 'unknown'])
+                     | map(attribute='entity_id')
+                     | reject('in', excluded_entities) | list }}
+            - if: '{{ on_lights | length > 0 }}'
+              then:
+                - service: light.turn_off
+                  target:
+                    entity_id: '{{ on_lights }}'
+                  alias: Turn off lights
+            - if: '{{ on_switches | length > 0 }}'
+              then:
+                - service: switch.turn_off
+                  target:
+                    entity_id: '{{ on_switches }}'
+                  alias: Turn off switches
+            - if: '{{ on_media | length > 0 }}'
+              then:
+                - service: media_player.turn_off
+                  target:
+                    entity_id: '{{ on_media }}'
+                  alias: Turn off media players
+            - if: '{{ on_climate | length > 0 }}'
+              then:
+                - service: climate.turn_off
+                  target:
+                    entity_id: '{{ on_climate }}'
+                  alias: Turn off climate
+            - alias: Let devices report their new state before re-checking
+              delay:
+                seconds: 3
+          until:
+            # Stop once a full pass finds nothing still on, or after 4 passes.
+            - condition: template
+              value_template: >-
+                {{ (on_lights | length + on_switches | length
+                    + on_media | length + on_climate | length) == 0
+                   or repeat.index >= 4 }}
