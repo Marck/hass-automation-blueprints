@@ -29,13 +29,22 @@ blueprint:
         number:
           min: -90
           max: 90
-  source_url: https://input-url-here-later-on
+    debug_logging:
+      name: Debug logging
+      description: When on, write a line to the Home Assistant log (logger
+        blueprint.motion_lights, info level) each time this turns lights on or off.
+        Off by default.
+      default: false
+      selector:
+        boolean: {}
+  source_url: https://github.com/Marck/hass-automation-blueprints/blob/main/motion-controlled-lights.yaml
 mode: restart
 max_exceeded: silent
 variables:
   motion_entities: !input 'motion_entities'
   no_motion_wait: !input 'no_motion_wait'
   sun_elevation_below: !input 'sun_elevation_below'
+  debug_logging: !input 'debug_logging'
 trigger:
 - platform: state
   entity_id: !input 'motion_entities'
@@ -75,3 +84,13 @@ action:
             | selectattr('state', 'eq', light_state) | map(attribute='entity_id') | list %}
         {% endfor %}
         {{ ns.entities }}
+- if: '{{ debug_logging }}'
+  then:
+  - service: system_log.write
+    data:
+      logger: blueprint.motion_lights
+      level: info
+      message: >-
+        Motion-controlled lights: turned lights
+        {{ 'ON' if trigger.to_state.state == 'on' else 'OFF' }}
+        (sensor {{ trigger.entity_id }} -> {{ trigger.to_state.state }})
