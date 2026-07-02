@@ -48,11 +48,22 @@ blueprint:
       default: false
       selector:
         boolean: {}
+    debug_logging:
+      name: Debug logging
+      description: >
+        When on, write a line to the Home Assistant log (logger
+        blueprint.turn_off_everything, info level) on each pass listing what is
+        being turned off. Helps diagnose devices that ignore the first command.
+        Independent of Debug mode; off by default.
+      default: false
+      selector:
+        boolean: {}
   source_url: https://github.com/Marck/hass-automation-blueprints/blob/main/turn-off-everything-except.yaml
 mode: single
 max_exceeded: silent
 variables:
   debug_mode: !input debug_mode
+  debug_logging: !input debug_logging
   exclude_labels: !input exclude_labels
   # Entities to keep on: directly labelled entities plus every entity that
   # belongs to a labelled device.
@@ -136,6 +147,16 @@ action:
                      | rejectattr('state', 'in', ['off', 'unavailable', 'unknown'])
                      | map(attribute='entity_id')
                      | reject('in', excluded_entities) | list }}
+            - if: '{{ debug_logging }}'
+              then:
+                - service: system_log.write
+                  data:
+                    logger: blueprint.turn_off_everything
+                    level: info
+                    message: >-
+                      Turn-off pass {{ repeat.index }} — still on:
+                      lights={{ on_lights }} switches={{ on_switches }}
+                      media={{ on_media }} climate={{ on_climate }}
             - if: '{{ on_lights | length > 0 }}'
               then:
                 - service: light.turn_off
