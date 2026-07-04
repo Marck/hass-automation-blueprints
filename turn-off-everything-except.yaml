@@ -157,27 +157,34 @@ action:
                       Turn-off pass {{ repeat.index }} — still on:
                       lights={{ on_lights }} switches={{ on_switches }}
                       media={{ on_media }} climate={{ on_climate }}
+            # continue_on_error: a cloud device (e.g. a Tuya switch) can raise a
+            # "network error" that would otherwise abort the whole run and leave
+            # later domains on. Swallow it here; the loop re-checks and retries.
             - if: '{{ on_lights | length > 0 }}'
               then:
                 - service: light.turn_off
+                  continue_on_error: true
                   target:
                     entity_id: '{{ on_lights }}'
                   alias: Turn off lights
             - if: '{{ on_switches | length > 0 }}'
               then:
                 - service: switch.turn_off
+                  continue_on_error: true
                   target:
                     entity_id: '{{ on_switches }}'
                   alias: Turn off switches
             - if: '{{ on_media | length > 0 }}'
               then:
                 - service: media_player.turn_off
+                  continue_on_error: true
                   target:
                     entity_id: '{{ on_media }}'
                   alias: Turn off media players
             - if: '{{ on_climate | length > 0 }}'
               then:
                 - service: climate.turn_off
+                  continue_on_error: true
                   target:
                     entity_id: '{{ on_climate }}'
                   alias: Turn off climate
