@@ -125,7 +125,11 @@ variables:
     ','') %}\n  {% set ns.devices = ns.devices + [ device ~ '/custom/solar_power']
     %}\n{%- endfor %} {{ ns.devices }}"
   power_sensor: !input power_source
-  power_level: '{{ states[power_sensor].state | int(0) | abs }}'
+  # states[x].state throws "'None' has no attribute 'state'" when the chosen
+  # power sensor does not exist (renamed/removed) - and this runs every 2
+  # minutes, so it floods the log. states(x) returns 'unknown' instead, which
+  # int(0) turns into 0 and the skip_if_zero_watts branch then handles.
+  power_level: '{{ states(power_sensor) | int(0) | abs }}'
   threshold_low: !input threshold_low
   threshold_high: !input threshold_high
   power_level_icon: '{%- if power_level > threshold_high %}{{54156}}{%- endif %} {%-
