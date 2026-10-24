@@ -18,7 +18,7 @@ jobs:
     name: YAML Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install yamllint
         run: pip install yamllint
@@ -30,7 +30,7 @@ jobs:
     name: Blueprint schema
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Read HA version
         id: ha
