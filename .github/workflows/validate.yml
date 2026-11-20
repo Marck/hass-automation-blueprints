@@ -9,9 +9,14 @@ name: Validate blueprints
 
 on:
   push:
-    branches: [main]
+    # renovate/** too, so Renovate sees a green branch and automerges it.
+    branches: [main, "renovate/**"]
   pull_request:
     branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   yamllint:
